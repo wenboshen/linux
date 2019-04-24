@@ -25,6 +25,7 @@
 #include <linux/uprobes.h>
 #include <linux/livepatch.h>
 #include <linux/syscalls.h>
+#include <linux/random.h>
 
 #include <asm/desc.h>
 #include <asm/traps.h>
@@ -275,6 +276,11 @@ __visible void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 
 	enter_from_user_mode();
 	local_irq_enable();
+
+	// Current function must not do __stack_chk_fail check
+	current->stack_canary = get_random_canary();
+	this_cpu_write(irq_stack_union.stack_canary, current->stack_canary);
+
 	ti = current_thread_info();
 	if (READ_ONCE(ti->flags) & _TIF_WORK_SYSCALL_ENTRY)
 		nr = syscall_trace_enter(regs);
