@@ -167,6 +167,17 @@ GLOBAL(entry_SYSCALL_64_after_hwframe)
 
 	PUSH_AND_CLEAR_REGS rax=$-ENOSYS
 
+	/* Approach 1: use performance monitor counter */
+	pushq	%rbp
+	pushq	%rax
+	pushq	%rdx
+	#pushq	%rcx
+	call	set_new_canary_pmc
+	#popq	%rcx
+	popq	%rdx
+	popq	%rax
+	popq	%rbp
+
 	TRACE_IRQS_OFF
 
 	/* IRQs are off. */

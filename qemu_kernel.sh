@@ -1,5 +1,5 @@
 KERNEL_DIR=$PWD
-ROOTFS_DIR=/home/wenbo/KERNEL/X86_KERNEL/buildroot-x86.git
+ROOTFS_DIR=$KERNEL_DIR/../buildroot-x86.git
 
 
 qemu-system-x86_64 \

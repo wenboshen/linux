@@ -269,6 +269,48 @@ __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 	prepare_exit_to_usermode(regs);
 }
 
+static inline u64 canary_rdpmc(void)
+{
+	unsigned int low, high;
+	int counter=(1<<30)+1; //What counter it selects?
+	asm volatile("rdpmc" : "=a" (low), "=d" (high) : "c" (counter));
+	return low | ((u64)high) << 32;
+}
+
+static inline u64 canary_rdtsc(void)
+{
+	unsigned int low, high;
+	asm volatile("rdtsc" : "=a" (low), "=d" (high));
+	return low | ((u64)high) << 32;
+}
+
+/*
+ * This function should be used in asm code, such as entry_SYSCALL_64.
+ * Current function or any function prior 
+ * must not do __stack_chk_fail check
+ */
+void set_new_canary_pmc(void) 
+{
+	// FIXME: currently qemu does not support rdpmc
+	// Should change to canary_rdpmc and verify on real hardware
+	u64 canary = canary_rdtsc();
+	current->stack_canary = canary;
+	this_cpu_write(irq_stack_union.stack_canary, canary);
+}
+
+/*
+ * This function should be used in C code, such as do_syscall_64.
+ * Current function or any function prior 
+ * must not do __stack_chk_fail check
+ */
+void set_new_canary_random(void) 
+{
+
+	u64 canary = get_random_canary();
+	current->stack_canary = canary;
+	this_cpu_write(irq_stack_union.stack_canary, canary);
+}
+
 #ifdef CONFIG_X86_64
 __visible void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 {
@@ -277,10 +319,8 @@ __visible void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 	enter_from_user_mode();
 	local_irq_enable();
 
-	// Current function must not do __stack_chk_fail check
-	current->stack_canary = get_random_canary();
-	this_cpu_write(irq_stack_union.stack_canary, current->stack_canary);
-
+	//Approach 2: use random number
+	/*set_new_canary_random();*/
 	ti = current_thread_info();
 	if (READ_ONCE(ti->flags) & _TIF_WORK_SYSCALL_ENTRY)
 		nr = syscall_trace_enter(regs);
